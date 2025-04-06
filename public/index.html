@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Chat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #chat-container {
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+            height: 400px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+        }
+        #users-list {
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        #message-form {
+            display: flex;
+            margin-bottom: 10px;
+        }
+        #message-input {
+            flex-grow: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            padding: 8px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 4px;
+            background-color: #f0f0f0;
+        }
+        .message .user {
+            font-weight: bold;
+            color: #333;
+        }
+        .message .time {
+            font-size: 0.8em;
+            color: #666;
+            margin-left: 10px;
+        }
+        .notification {
+            color: #666;
+            font-style: italic;
+            margin: 5px 0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Real-time Chat</h1>
+    
+    <div id="users-list">
+        <h3>Online Users (<span id="users-count">0</span>)</h3>
+        <ul id="users"></ul>
+    </div>
+    
+    <div id="chat-container"></div>
+    
+    <form id="message-form">
+        <input type="text" id="message-input" placeholder="Type your message..." autocomplete="off">
+        <button type="submit">Send</button>
+    </form>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const chatContainer = document.getElementById('chat-container');
+        const messageForm = document.getElementById('message-form');
+        const messageInput = document.getElementById('message-input');
+        const usersList = document.getElementById('users');
+        const usersCount = document.getElementById('users-count');
+
+        // Prompt for username
+        let username = prompt('Enter your username:');
+        while (!username || username.trim() === '') {
+            username = prompt('Username cannot be empty. Please enter your username:');
+        }
+        socket.emit('join', username.trim());
+
+        // Handle incoming messages
+        socket.on('receive-message', (data) => {
+            appendMessage(data.user, data.message, data.time);
+        });
+
+        // Handle user connections
+        socket.on('user-connected', (username) => {
+            appendNotification(`${username} joined the chat`);
+        });
+
+        // Handle user disconnections
+        socket.on('user-disconnected', (username) => {
+            appendNotification(`${username} left the chat`);
+        });
+
+        // Update users list
+        socket.on('update-users', (users) => {
+            usersList.innerHTML = '';
+            users.forEach(user => {
+                const li = document.createElement('li');
+                li.textContent = user;
+                usersList.appendChild(li);
+            });
+            usersCount.textContent = users.length;
+        });
+
+        // Handle message submission
+        messageForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const message = messageInput.value.trim();
+            if (message) {
+                socket.emit('send-message', message);
+                appendMessage('You', message, new Date().toLocaleTimeString());
+                messageInput.value = '';
+            }
+        });
+
+        // Helper functions
+        function appendMessage(user, message, time) {
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message';
+            messageElement.innerHTML = `
+                <span class="user">${user}:</span>
+                <span class="time">${time}</span>
+                <div>${message}</div>
+            `;
+            chatContainer.appendChild(messageElement);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function appendNotification(message) {
+            const notificationElement = document.createElement('div');
+            notificationElement.className = 'notification';
+            notificationElement.textContent = message;
+            chatContainer.appendChild(notificationElement);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Focus on input field when page loads
+        messageInput.focus();
+    </script>
+</body>
+</html>
